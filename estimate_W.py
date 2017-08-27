@@ -109,5 +109,5 @@ img_boundary_median = find_pixelwise_median(imgs_boundary)
 #poisson reconstruction
 reconstruct_w_fn = lambda n,Gx,Gy,boundary: poisson_reconstruct(Gx[:,:,n],Gy[:,:,n],boundary[:,:,n])
 w_estimate = apply_fn_to_all_colorchannels(reconstruct_w_fn, 3, np.multiply(img_Gx_median,edges),  np.multiply(img_Gy_median,edges), img_boundary_median)     
-w_estimate = (w_estimate - np.min(w_estimate))/np.max(w_estimate)
+w_estimate = (w_estimate - np.min(w_estimate))/np.max(w_estimate) #normalize
 #maybe need to only input Gx,Gy where edge = True, 0 everywhere else
