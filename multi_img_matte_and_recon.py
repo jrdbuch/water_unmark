@@ -48,6 +48,3 @@ def initialize_vals(Wm_hat,imgs):
 
 def find_black_patches(img,threshold=0.01):
     pass
-
-def 
-    
