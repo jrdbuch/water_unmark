@@ -6,9 +6,10 @@ import os
 from poisson_reconstruct import poisson_reconstruct
 import cv2
 
+##TO DO make agnostic to shape
 
 
-class WaterUnmark():
+class WaterUnmark:
     def __init__(self):
         self._imgs_raw = []
         self._imgs_processed = []
@@ -16,12 +17,11 @@ class WaterUnmark():
         self._imgs_Gy = []
         self._imgs_Gmag = []
         self._imgs_boundary = []
-        self,_imgs_edges = []
+        self._imgs_edges = []
 
         #replace this with numpy func
-        self._elementwise_2Dmag_fn = lambda n, Gx, Gy: np.vectorize(lambda x, y: (x ** 2 + y ** 2) ** 0.5)(Gx[:, :, n],
-                                                                                                     Gy[:, :,
-                                                                                                     n])  # element wise magnitude fn
+        self._elementwise_2Dmag_fn = lambda n, Gx, Gy: np.vectorize(lambda x, y:
+                                    (x ** 2 + y ** 2) ** 0.5)(Gx[:, :, n], Gy[:, :,n])  # element wise magnitude fn
 
         self._edge_detect_fn = lambda n, sigma, thresh_frac, img: feature.canny(img[:, :, n], sigma=sigma,
                                                                           high_threshold=thresh_frac * np.max(img))
@@ -31,13 +31,13 @@ class WaterUnmark():
         self._imgs_raw = []
 
         for img_path in img_paths:
-            self._imgs_raw.append(io.imread(path_to_dir + '\\' + img_path))
+            self._imgs_raw.append(io.imread(os.path.join(path_to_dir,img_path)))
 
     @staticmethod
-    def _apply_fn_to_all_colorchannels(fn,num_channels,*fn_args):
-        #applies function "fn" to all channels independently with function inputs *fn_args
-        #first input to custom function "fn" must be the channel number
-        #REFACTOR THIS
+    def _apply_fn_to_all_colorchannels(fn, num_channels, *fn_args):
+        # applies function "fn" to all channels independently with function inputs *fn_args
+        # first input to custom function "fn" must be the channel number
+        # REFACTOR THIS
 
         for color_channel_n in range(num_channels):
             img_return_one_channel = fn(color_channel_n, *fn_args)
@@ -51,8 +51,8 @@ class WaterUnmark():
 
     @staticmethod
     def _find_pixelwise_median(img_list):
-        #finds the pixelwise median over a collection of imgs
-        #TO DO: Replace with numpy function
+        # finds the pixelwise median over a collection of imgs
+        # TO DO: Replace with numpy function
 
         img_median = np.zeros(img_list[0].shape)
 
@@ -63,8 +63,8 @@ class WaterUnmark():
 
         return img_median
 
-    def _extract_img_boundaries(self):
-        #TO DO: make this robust for shifted watermarks
+    def _extract_img_boundaries(sel, img):
+        # TO DO: make this robust for shifted watermarks
         # gather image boundary to be used for later poisson reconstruction
         img_boundary = np.zeros(img.shape)  # new img with only the boundaries of the orginal img
         img_boundary[0, :, :] = img[0, :, :]
@@ -87,15 +87,14 @@ class WaterUnmark():
         img_Gx = ndi.sobel(img, axis=0)
         img_Gy = ndi.sobel(img, axis=1)
 
-
         img_Gmag = self._apply_fn_to_all_colorchannels(self._elementwise_2Dmag_fn, 3, img_Gx, img_Gy)
 
         return img_Gx, img_Gy, img_Gmag
 
-    def _extract_edgemap(self, img):
+    def _extract_edgemap(self, img_Gmag):
         # find verbose edge map
 
-        img_edges = self._apply_fn_to_all_colorchannels(edge_detect_fn, 3, 1, 0.4, img_Gmag)
+        img_edges = self._apply_fn_to_all_colorchannels(self._edge_detect_fn, 3, 1, 0.4, img_Gmag)
 
         return img_edges
 
@@ -105,19 +104,18 @@ class WaterUnmark():
 
         return w_estimate
 
-
     def _find_elementwise_(self):
         pass
 
     def estimate_watermark(self):
 
-        for img in self._raw_imgs:
+        #iterate over raw training imgs
+        for img in self._imgs_raw:
 
             img_processed = self._preprocess_img(img)
             img_Gx, img_Gy, img_Gmag =  self._extract_img_gradients(img_processed)
             img_edges = self._extract_edgemap(img)
-            img_boundary = self._extract_img_gradients(self, img)
-
+            img_boundary = self._extract_img_boundaries(img)
 
             # store single data sample in list
             self._imgs_processed.append(img_processed)
@@ -127,31 +125,34 @@ class WaterUnmark():
             self._imgs_Gmag.append(img_Gmag)
             self._imgs_edges.append(img_edges)
 
-        for _ in range(1):
-            ### Watermark estimation###
+        ### Watermark estimation###
 
-            # find pixelwise gradient medians over all images
-            img_Gx_median = self._find_pixelwise_median(self._imgs_Gx)
-            img_Gy_median = self._find_pixelwise_median(self._imgs_Gy)
-            img_Gmag_median = self._apply_fn_to_all_colorchannels(self._elementwise_2Dmag_fn, 3, self._img_Gx_median, self._img_Gy_median)
+        # find pixelwise gradient medians over all images
+        self._imgs_Gx_median = self._find_pixelwise_median(self._imgs_Gx)
+        self._imgs_Gy_median = self._find_pixelwise_median(self._imgs_Gy)
+        self._imgs_Gmag_median = self._apply_fn_to_all_colorchannels(self._elementwise_2Dmag_fn, 3, self._imgs_Gx_median, self._imgs_Gy_median)
 
-            # find median img boundary
-            img_boundary_median = self._find_pixelwise_median(self._imgs_boundary)
+        # find median img boundary
+        self._imgs_boundary_median = self._find_pixelwise_median(self._imgs_boundary)
 
-            # extract edges
-            img_edges_median = self._apply_fn_to_all_colorchannels(self._edge_detect_fn, 3, 1, 0.3, img_Gmag_median).astype(bool)  # run canny edge detection
-            #bounding_box = ndi.find_objects(img_edges_median)[0]  # find bounding box around objects where edges = True
+        # extract edges
+        self._imgs_edges_median = self._apply_fn_to_all_colorchannels(self._edge_detect_fn, 3, 1, 0.3, self._imgs_Gmag_median).astype(bool)  # run canny edge detection
+        #bounding_box = ndi.find_objects(img_edges_median)[0]  # find bounding box around objects where edges = True
 
-            # use edges to locate the gradients of interest for poisson reconstruction
-            img_Gx_reconstruct = np.multiply(self._img_Gx_median, self._img_edges_median)
-            img_Gy_reconstruct = np.multiply(self._img_Gy_median, self._img_edges_median)
+        # use edges to locate the gradients of interest for poisson reconstruction
+        img_Gx_reconstruct = np.multiply(self._imgs_Gx_median, self._imgs_edges_median)
+        img_Gy_reconstruct = np.multiply(self._imgs_Gy_median, self._imgs_edges_median)
 
-            ###Watermark detection### not needed if bounding box for the template is the entire image
-            #match = cv2.matchTemplate(img_edges_median[:,:,0].astype(np.uint8),imgs_edges[0][:,:,0].astype(np.uint8),method=eval('cv2.TM_CCOEFF')) #template, img
+        print(self._imgs_boundary_median.shape)
+
+        plt.imshow(poisson_reconstruct(img_Gy_reconstruct[:,:,2], img_Gx_reconstruct[:,:,2], self._imgs_boundary_median[:,:,2]))
+        plt.show()
+
+        ###Watermark detection### not needed if bounding box for the template is the entire image
+        #match = cv2.matchTemplate(img_edges_median[:,:,0].astype(np.uint8),imgs_edges[0][:,:,0].astype(np.uint8),method=eval('cv2.TM_CCOEFF')) #template, img
 
         # poisson reconstruction
-
-        w_estimate = self._reconstruct_watermark(img_Gx_reconstruct, img_Gy_reconstruct, img_boundary_median)
+        w_estimate = self.reconstruct_watermark(img_Gx_reconstruct, img_Gy_reconstruct, self._imgs_boundary_median)
 
 
 
@@ -163,5 +164,12 @@ def resize_imgs(img_list,mode='centered_crop'):
 
 
 if __name__ == "__main__":
-    pass
+
+    wu = WaterUnmark()
+    wu.import_training_images(u'/home/jaredbuchanan/water_unmark/examples/123RF')
+    w = wu.estimate_watermark()
+
+    print(type(w))
+
+
 
