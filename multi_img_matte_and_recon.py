@@ -7,44 +7,83 @@ from poisson_reconstruct import poisson_reconstruct
 import cv2
 
 
-def Edata(I,W,a,J):
-    #sum over every pixel
-    assert I.ndim == 2
-    assert W.ndim == 2
-    assert J.dim == 2
-    
-    obj_sum = 0
-    for x in range(I.shape[0]):
-        for y in range(I.shape[1]):
-            obj_sum += L1_approx(np.absolute(a[x,y]*W[x,y]+(1-a[x,y])*I[x,y]-J[x,y])**2)
-            
-    return obj_sum
-    
-def Ereg_IJ(Gx, Gy , ax, ay):
-    return L1_approx(np.absolute(ax)*Gx**2 + np.absolute(ay)*Gy**2)
+def Edata(i,w,alpha,j):
+    """
+    Cost associated with the deviation of W applied to I via the formation model (Jform) as compared with the actual J
 
-def Ereg_a(ax,ay):
+    :param i: Natural Image, single pixel
+    :param w: Watermark image, single pixel
+    :param a: alpha matte, single pixel
+    :param j: natural image with watermark, single pixel
+    :return:
+    """
+
+    jform = add_watermark(w, i, alpha)
+    cost = L1_approx(np.absolute(jform - j)**2)
+            
+    return cost
+    
+def Ereg_ig(igx, igy , agx, agy):
+    """
+    :param igx:
+    :param igy:
+    :param agx:
+    :param agy:
+    :return:
+    """
+
+    return L1_approx(np.absolute(agx)*igx**2 + np.absolute(agy)*igy**2)
+
+def Ereg_ag(ax,ay):
     return L1_approx(ax**2 + ay**2)
     
 def Ef(Wm_grad_hat,Wm_grad):
     return L1_approx(np.linalg.norm(Wm_grad_hat - Wm_grad,ord=2)**2)
     
-def Eaux(W,Wk):
-    obj_sum = 0
-    for x in range(W.shape[0]):
-        for y in range(W.shape[2]):
-            obj_sum += np.absolute(W[x,y] - Wk[x,y])
-    
-    return obj_sum 
+def Eaux(w,wk):
+    return np.absolute(w - wk)
 
 def L1_approx(s2,e=0.001):
     assert s2 >= 0
     
     return (s2+e**2)**0.5
 
+def add_watermark(W,I, alpha):
+    return np.multiply(W,alpha) + np.multiply(I,1-alpha)
 
-def initialize_vals(Wm_hat,imgs):
-    pass
 
-def find_black_patches(img,threshold=0.01):
-    pass
+def cost():
+    cost = Edata() + Ereg_ig() + Ereg_ag() + Ef() + Eaux()
+
+    return cost
+
+
+def image_watermark_decomposition(W, alpha, Jk):
+    """
+    :param W: current estimate of global watermark
+    :param alpha: current estimate of alpha
+    :param Jk: single image sample
+    :return:
+    """
+
+    alpha_x = None
+    alpha_y = None
+
+    for x in range(Jk.shape[0]):
+        for y in range(Jk.shape[1]):
+            for n in range(Jk.shape[3]):
+                #calculate cost for single pixel in image
+
+                cost_fn = lambda x: cost_fn()
+
+                #optimize ix, wx terms
+
+
+    return
+
+def matte_update():
+    for x in range(Jk.shape[0]):
+        for y in range(Jk.shape[1]):
+            for n in range(Jk.shape[3]):
+
+
