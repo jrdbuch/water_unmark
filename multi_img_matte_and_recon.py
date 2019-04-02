@@ -1,4 +1,7 @@
-import numpy as np 
+import numpy as np
+import copy
+from estimate_W import extract_img_gradients
+import scipy
 from skimage import io,feature
 import matplotlib.pyplot as plt 
 from scipy import ndimage as ndi
@@ -7,7 +10,7 @@ from poisson_reconstruct import poisson_reconstruct
 import cv2
 
 
-def Edata(i,w,alpha,j):
+def Edata(i,w,a,j):
     """
     Cost associated with the deviation of W applied to I via the formation model (Jform) as compared with the actual J
 
@@ -18,7 +21,7 @@ def Edata(i,w,alpha,j):
     :return:
     """
 
-    jform = add_watermark(w, i, alpha)
+    jform = add_watermark(w, i, a)
     cost = L1_approx(np.absolute(jform - j)**2)
             
     return cost
@@ -34,11 +37,17 @@ def Ereg_ig(igx, igy , agx, agy):
 
     return L1_approx(np.absolute(agx)*igx**2 + np.absolute(agy)*igy**2)
 
-def Ereg_ag(ax,ay):
-    return L1_approx(ax**2 + ay**2)
+def Ereg_ag(agx,agy):
+    return L1_approx(agx**2 + agy**2)
     
-def Ef(Wm_grad_hat,Wm_grad):
-    return L1_approx(np.linalg.norm(Wm_grad_hat - Wm_grad,ord=2)**2)
+def Ef(wkg, w_init_g, a):
+    """
+    :param wkg: single pixel gradient for current watermark estimate for image k
+    :param w_init_g: single pixel gradient of initial watermark estimate
+    :param a: single pixel alpha
+    :return:
+    """
+    return L1_approx(np.linalg.norm(a*wkg - a*w_init_g,ord=2)**2)
     
 def Eaux(w,wk):
     return np.absolute(w - wk)
@@ -52,34 +61,51 @@ def add_watermark(W,I, alpha):
     return np.multiply(W,alpha) + np.multiply(I,1-alpha)
 
 
-def cost():
-    cost = Edata() + Ereg_ig() + Ereg_ag() + Ef() + Eaux()
+def cost(i, w, a, j, igx, igy, agx, agy, wkg, w_init_g, wk):
+
+    cost = Edata(ik,wk,a,jk) + Ereg_ig(igx, igy , agx, agy) + \
+           Ereg_ag(agx,agy) + Ef(wkg, w_init_g, a) + Eaux(w,wk)
 
     return cost
 
 
-def image_watermark_decomposition(W, alpha, Jk):
+def image_watermark_decomposition(W, W_init, A, Jk):
     """
-    :param W: current estimate of global watermark
-    :param alpha: current estimate of alpha
-    :param Jk: single image sample
+    :param W: current estimate of global estimate of watermark
+    :param W_init:
+    :param A: current estimate of matte matrix
+    :param Jk: single training image with watermark
     :return:
     """
 
-    alpha_x = None
-    alpha_y = None
+    Agx = None
+    Agy = None
+    Ik = copy.deepcopy(Jk)
+    Wk = copy.deepcopy(W)
+    Ikgx, Ikgy, _ = extract_img_gradients(Ik)
+    Wkgx, Wkgy, _ = extract_img_gradients(Wk)
+    W_init_gx, W_init_gy, _ = extract_img_gradients(W_init)
 
+    #iterate over individual pixels
     for x in range(Jk.shape[0]):
         for y in range(Jk.shape[1]):
-            for n in range(Jk.shape[3]):
+            for n in range(Jk.shape[2]):
                 #calculate cost for single pixel in image
 
-                cost_fn = lambda x: cost_fn()
+                cost_fn = lambda var: cost(var[0], var[1], A[x,y], J[x,y,n],
+                                             Ikgx[x,y,n], Ikgy[x,y,n], Agx[x,y,n], Agy[x,y,n],
+                                             np.array([Wkgx[x,y,n], Wkgy[x,y,n]]),
+                                             np.array([W_init_gx[x, y, n], W_init_gy[x, y, n]]),
+                                             Wk[x,y,n])
 
-                #optimize ix, wx terms
+                #optimize Ik, Wk terms for single pixel
+                results = scipy.optimize.minimize(cost_fn, np.array([Ik[x,y,n], Wk[x,y,n]]), method='Newton-CG', maxiter=10)
+
+                Ik[x,y,n] = results.x[0]
+                Wk[x,y,n] = results.x[1]
 
 
-    return
+    return Ik, Wk
 
 def matte_update():
     for x in range(Jk.shape[0]):

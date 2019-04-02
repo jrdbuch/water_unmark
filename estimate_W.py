@@ -94,6 +94,11 @@ def detect_watermark():
 
     pass
 
+def threshold_img(img, threshold):
+    img[np.abs(img) < threshold] = 0
+
+    return img
+
 
 def estimate_watermark(imgs_raw):
 
@@ -128,9 +133,10 @@ def estimate_watermark(imgs_raw):
     # find pixelwise gradient medians over all images
     imgs_Gx_median = np.median(np.stack(imgs_Gx, axis=-1), axis=-1)
     imgs_Gy_median = np.median(np.stack(imgs_Gy, axis=-1), axis=-1)
+    imgs_Gy_median = threshold_img(imgs_Gy_median, 3)
+    imgs_Gx_median = threshold_img(imgs_Gx_median, 3)
     #imgs_Gmag_median = apply_fn_to_all_colorchannels(elementwise_2Dmag_fn, 3, imgs_Gx_median, imgs_Gy_median)
     imgs_Gmag_median = np.linalg.norm(np.stack([imgs_Gx_median, imgs_Gy_median], axis=-1), axis=-1)
-    print(imgs_Gmag_median.shape)
 
     # poisson reconstruction
     print('Reconstructing Watermark')
@@ -144,7 +150,7 @@ def estimate_watermark(imgs_raw):
     plt.figure(1)
     plt.imshow(w_estimate.astype(int))
     plt.figure(2)
-    plt.imshow(imgs_Gx_median.astype(int))
+    plt.imshow(imgs_Gx_median[:,:,0].astype(int))
     plt.figure(3)
     plt.imshow(imgs_Gy_median.astype(int))
     plt.figure(4)
