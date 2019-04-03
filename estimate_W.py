@@ -158,6 +158,15 @@ def estimate_watermark(imgs_raw):
 
     return w_estimate
 
+def intialize_normalized_alpha_matte(w_estimate):
+    alpha_matte_norm = np.zeros(w_estimate.shape[:-1])
+
+    print(alpha_matte_norm.shape, w_estimate.shape, np.linalg.norm(w_estimate, axis=-1).shape)
+
+    alpha_matte_norm[np.linalg.norm(w_estimate, axis=-1) > 2] = 1
+
+    return alpha_matte_norm
+
 
 def detect_watermark():
     pass

@@ -63,7 +63,7 @@ def add_watermark(W,I, alpha):
 
 def cost(i, w, a, j, igx, igy, agx, agy, wkg, w_init_g, wk):
 
-    cost = Edata(ik,wk,a,jk) + Ereg_ig(igx, igy , agx, agy) + \
+    cost = Edata(i,wk,a,j) + Ereg_ig(igx, igy , agx, agy) + \
            Ereg_ag(agx,agy) + Ef(wkg, w_init_g, a) + Eaux(w,wk)
 
     return cost
@@ -78,8 +78,7 @@ def image_watermark_decomposition(W, W_init, A, Jk):
     :return:
     """
 
-    Agx = None
-    Agy = None
+    Agx, Agy, _ = extract_img_gradients(A)
     Ik = copy.deepcopy(Jk)
     Wk = copy.deepcopy(W)
     Ikgx, Ikgy, _ = extract_img_gradients(Ik)
@@ -91,15 +90,16 @@ def image_watermark_decomposition(W, W_init, A, Jk):
         for y in range(Jk.shape[1]):
             for n in range(Jk.shape[2]):
                 #calculate cost for single pixel in image
+                print(x,y,n)
 
-                cost_fn = lambda var: cost(var[0], var[1], A[x,y], J[x,y,n],
-                                             Ikgx[x,y,n], Ikgy[x,y,n], Agx[x,y,n], Agy[x,y,n],
+                cost_fn = lambda var: cost(var[0], var[1], A[x,y], Jk[x,y,n],
+                                             Ikgx[x,y,n], Ikgy[x,y,n], Agx[x,y], Agy[x,y],
                                              np.array([Wkgx[x,y,n], Wkgy[x,y,n]]),
                                              np.array([W_init_gx[x, y, n], W_init_gy[x, y, n]]),
                                              Wk[x,y,n])
 
                 #optimize Ik, Wk terms for single pixel
-                results = scipy.optimize.minimize(cost_fn, np.array([Ik[x,y,n], Wk[x,y,n]]), method='Newton-CG', maxiter=10)
+                results = scipy.optimize.minimize(cost_fn, np.array([Ik[x,y,n], Wk[x,y,n]]), options={"maxiter":2}, jac=False)
 
                 Ik[x,y,n] = results.x[0]
                 Wk[x,y,n] = results.x[1]
@@ -111,5 +111,6 @@ def matte_update():
     for x in range(Jk.shape[0]):
         for y in range(Jk.shape[1]):
             for n in range(Jk.shape[3]):
+                pass
 
 
