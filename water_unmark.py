@@ -1,5 +1,6 @@
 from estimate_W import *
 from multi_img_matte_and_recon import *
+import matplotlib.pyplot as plt
 import copy
 
 
@@ -25,7 +26,7 @@ def main():
     for Jk in imgs_raw:
         Ik, Wk = image_watermark_decomposition(W, W_init, A, Jk)
         Wks.append(Wk)
-        Iks.apend(Ik)
+        Iks.append(Ik)
 
         plt.figure(101)
         plt.imshow(Wk)
